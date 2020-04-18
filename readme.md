@@ -79,3 +79,6 @@ cp -R -f usr /xxx/typecho/
 ## 最后
 
 祝你使用顺利
+
+
+更多迁移事项，参考：[记从Hexo迁移到Typecho](https://blog.gavinzh.com/2020/04/04/Migrating-Typecho-from-hexo/)
