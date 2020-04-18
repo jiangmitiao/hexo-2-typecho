@@ -1,0 +1,18 @@
+{
+  "name": "hexo-2-typecho",
+  "version": "1.0.1",
+  "description": "hexo posts transform to typecho",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "npm",
+    "typecho"
+  ],
+  "author": "gavinzh",
+  "license": "ISC",
+  "dependencies": {
+    "hexo-fs": "^2.0.0"
+  }
+}
