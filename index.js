@@ -171,7 +171,7 @@ function singlePicProcess(arg1, arg2) {
             console.log("复制成功", srcPath, destPath);
         }
     });
-    let size = fs.readFileSync(srcPath).size;
+    let size = fs.readFileSync(srcPath).length;
     let att = {
         cid: contents.newCid(),
         title: fileName,
