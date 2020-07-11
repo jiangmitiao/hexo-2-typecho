@@ -1,6 +1,6 @@
 {
   "name": "hexo-2-typecho",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "hexo posts transform to typecho",
   "main": "index.js",
   "scripts": {
