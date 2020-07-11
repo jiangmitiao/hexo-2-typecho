@@ -7,32 +7,38 @@ const metas = {
     categoryMap: new Map()
 };
 // 添加标签方法
-metas.addTag = function (tag) {
-    if (!this.tagMap.has(tag)) {
-        this.tagMap.set(tag, {name: tag, slug: tag, type: 'tag', count: 0, mid: ++this.mid});
+metas.addTag = function (tagStr) {
+    if (!this.tagMap.has(tagStr)) {
+        this.tagMap.set(tagStr, {name: tagStr, slug: tagStr, type: 'tag', count: 0, mid: ++this.mid});
     }
-    let t = this.tagMap.get(tag);
-    t.count += 1;
-    this.tagMap.set(tag, t);
-    return t.mid;
+    let tag = this.tagMap.get(tagStr);
+    tag.count += 1;
+    this.tagMap.set(tagStr, tag);
+    return tag.mid;
 };
 // 添加类目方法
-metas.addCategory = function (category) {
-    if (!this.categoryMap.has(category)) {
-        this.categoryMap.set(category, {name: category, slug: category, type: 'category', count: 0, mid: ++this.mid});
+metas.addCategory = function (categoryStr) {
+    if (!this.categoryMap.has(categoryStr)) {
+        this.categoryMap.set(categoryStr, {
+            name: categoryStr,
+            slug: categoryStr,
+            type: 'category',
+            count: 0,
+            mid: ++this.mid
+        });
     }
-    let t = this.categoryMap.get(category);
-    t.count += 1;
-    this.categoryMap.set(category, t);
-    return t.mid;
+    let category = this.categoryMap.get(categoryStr);
+    category.count += 1;
+    this.categoryMap.set(categoryStr, category);
+    return category.mid;
 };
 
 // 对应typecho中的relationships
-const relation = {
+const relationships = {
     r: []
 };
 // 添加关系方法
-relation.add = function (mid, cid) {
+relationships.add = function (mid, cid) {
     this.r.push({
         mid: mid,
         cid: cid
@@ -94,18 +100,20 @@ if (!typecho.cid) {
     typecho.cid = 10;
 }
 
+metas.mid = typecho.mid;
+contents.cid = typecho.cid;
+
 
 // 生成器注册
 hexo.extend.generator.register('post', function (locals) {
-    //console.log(locals);
     locals.posts = locals.posts.sort("+date");
     locals.posts.forEach(p => {
-        postProcess(p)
+        postProcess(p);
     });
 
     locals.pages = locals.pages.sort("+date");
     locals.pages.forEach(p => {
-        pageProcess(p)
+        pageProcess(p);
     });
 });
 
@@ -136,14 +144,14 @@ function postProcess(data) {
     if (data.tags != null && data.tags.data != null) {
         data.tags.data.forEach(t => {
             let mid = metas.addTag(t.name);
-            relation.add(mid, data1.cid)
+            relationships.add(mid, data1.cid);
         });
     }
     // 类目处理
     if (data.categories != null && data.categories.data != null) {
         data.categories.data.forEach(t => {
             let mid = metas.addCategory(t.name);
-            relation.add(mid, data1.cid)
+            relationships.add(mid, data1.cid);
         });
     }
 
@@ -151,7 +159,7 @@ function postProcess(data) {
     contents.setCurrent(data1);
     let a = ["\\((\\/" + typecho.images + "\\/.*)\\)"];
     let re = new RegExp(a[0], "g");
-    data1.text = data1.text.replace(re, singlePicProcess)
+    data1.text = data1.text.replace(re, singlePicProcess);
 
 }
 
@@ -226,7 +234,7 @@ function pageProcess(data) {
 hexo.extend.filter.register('after_generate', function () {
     // console.log("得到的类目有：", metas.categoryMap);
     // console.log("得到的标签有：", metas.tagMap);
-    // console.log("得到的关系有：", relation.r);
+    // console.log("得到的关系有：", relationships.r);
 });
 
 
@@ -239,7 +247,24 @@ hexo.extend.filter.register('after_generate', function () {
             } else {
                 console.log("导出文章页面成功");
             }
-        })
+        });
+    } catch (err) {
+        console.error(err);
+    }
+
+    try {
+        let sql = "set global max_allowed_packet=157286400;\n";
+        contents.inner.forEach(content =>{
+            sql += `insert into t_contents(cid,title,slug,created,modified,text,\`order\`,authorId,template,type,status,password,commentsNum,allowComment,allowPing,allowFeed,parent) 
+        value(${content.cid},${JSON.stringify(content.title)},${JSON.stringify(content.slug)},${content.created},${content.modified},${JSON.stringify(content.text)},${content.order},${content.authorId},${content.template},'${content.type}','${content.status}',${content.password},${content.commentsNum},${content.allowComment},${content.allowPing},${content.allowFeed},${content.parent});\n`;
+        });
+        fs.writeFile("./typecho/contents.sql", sql, err => {
+            if (err) {
+                console.error(err);
+            } else {
+                console.log("导出文章页面 sql成功");
+            }
+        });
     } catch (err) {
         console.error(err);
     }
@@ -270,18 +295,54 @@ hexo.extend.filter.register('after_generate', function () {
     } catch (err) {
         console.error(err);
     }
+
+
+    try {
+        let d1 = _strMapToObj(metas.tagMap);
+        d1.push(..._strMapToObj(metas.categoryMap));
+        let sql = "";
+        d1.forEach(meta =>{
+            sql += `insert into t_metas(mid,name,slug,type,description,count,\`order\`,parent) 
+        value(${meta.mid},'${meta.name}','${meta.slug}','${meta.type}',null,${meta.count},0,0);\n`;
+        });
+        fs.writeFile("./typecho/metas.sql", sql, err => {
+            if (err) {
+                console.error(err);
+            } else {
+                console.log("导出meta sql成功");
+            }
+        });
+    } catch (err) {
+        console.error(err);
+    }
 });
 
 // 关系产出
 hexo.extend.filter.register('after_generate', function () {
     try {
-        fs.writeFile("./typecho/relation.json", JSON.stringify(relation.r), err => {
+        fs.writeFile("./typecho/relationships.json", JSON.stringify(relationships.r), err => {
             if (err) {
                 console.error(err);
             } else {
                 console.log("导出关系成功");
             }
-        })
+        });
+    } catch (err) {
+        console.error(err);
+    }
+
+    try {
+        let sql = "";
+        relationships.r.forEach(relation =>{
+            sql += `insert into t_relationships(mid,cid) value(${relation.mid},${relation.cid});\n`;
+        });
+        fs.writeFile("./typecho/relationships.sql", sql, err => {
+            if (err) {
+                console.error(err);
+            } else {
+                console.log("导出关系 sql成功");
+            }
+        });
     } catch (err) {
         console.error(err);
     }
